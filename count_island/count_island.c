@@ -2,14 +2,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-typedef	struct		s_env
+typedef	struct				s_env
 {
-	char			**tab;
-	char			*map;
-	int				col;
-	int				ligne;
+	char				**map;
+	int				x;
+	int				y;
 	int				len;
-	char			val;
+	char				val;
 }					t_env;
 
 void	ft_putchar(char c)
@@ -23,32 +22,71 @@ void	ft_putstr(char *str)
 		write(1, str, 1), str++;
 }
 
-void	grep_map(char *map, int fd, t_env *env)
+void	grep_map(int fd, t_env *env)
 {
 	int ret;
+	int x;
+	int y;
 	char c;
 
-	ret = read(fd, map, 1000000);
-	map[ret] = '\0';
+	y = 0;
+	x = 0;
+	while ((ret = read(fd, &c, 1)))
+	{
+		if ((c != '\n'))
+			env->map[y][x] = c, x++;
+		if (c == '\n' || c == '\0')
+			env->map[y][x] = '\0', y++, x = 0;
+	}
+	env->map[y][x] = 0;
+	env->map[y] = NULL;
+	env->x = x;
+	env->y = y;
 	env->len = ret;
 }
 
-void	take_size(t_env *env)
+void	resolve(char **map, char val, int x, int y)
 {
-	int i;
-	int e;
-
-	i = 0;
-	while (env->map[i] != '\n')
-		env->col++, i++;
-	env->ligne++;
-	i++;
-	while (env->map[i])
+	if (map[y])
 	{
-		if (env->map[i] == '\n')
-			env->ligne++;
-		i++;
+		if (map[y][x] == 'X')
+		{
+			map[y][x] = val;
+			if (x > 0)
+				resolve(map, val, x - 1, y);
+			if (y > 0)
+				resolve(map, val, x, y - 1);
+			if (map[y][x] + 1)
+				resolve(map, val, x + 1, y);
+			if (map[y + 1])
+				resolve(map, val, x, y + 1);
+		}
 	}
+}
+
+void	resolve_map(char **map, char val, int x, int y)
+{
+	y = 0;
+	while (map[y])
+	{
+		x = 0;
+		while (map[y][x])
+		{
+			if (map[y][x] == 'X')
+				resolve(map, val, x, y), val++;
+			x++;
+		}
+		y++;
+	}
+}
+
+void	print_map(t_env *env)
+{
+	int y;
+
+	y = 0;
+	while(env->map[y])
+		ft_putstr(env->map[y]), ft_putchar('\n'), y++;
 }
 
 void	count_island(int fd)
@@ -57,17 +95,14 @@ void	count_island(int fd)
 	int i;
 
 	i = 0;
-	env.ligne = 0;
-	env.col = 0;
 	env.val = '0';
-	env.map = (char*)malloc(sizeof(char) * 1000000);
-	grep_map(env.map, fd, &env);
-	take_size(&env);
-	while (env.map[i] != 'X')
-		i++;
-	if (env.map[i] == 'X')
-		resolve_island(env.map, i, env.val, &env);
-	ft_putstr(env.map);
+	env.map = (char**)malloc(sizeof(char*) * 1000);
+	env.map[1000] = NULL;
+	while (i < 1000)
+		env.map[i] = (char*)malloc(sizeof(char) * 100000), i++;
+	grep_map(fd, &env);
+	resolve_map(env.map, env.val, 0, 0);
+	print_map(&env);
 }
 
 int main(int argc, char **argv)
